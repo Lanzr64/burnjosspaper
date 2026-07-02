@@ -4,6 +4,7 @@ import net.lanzr.burnjosspaper.menu.PaginationContainer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.event.entity.EntityLeaveLevelEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -23,7 +24,12 @@ import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.core.BlockPos;
 import net.minecraftforge.registries.ForgeRegistries;
+
+import java.util.HashMap;
+import java.util.Map;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(BurnJossPapaer.MODID)
@@ -32,6 +38,11 @@ public class BurnJossPapaer {
     public static final String MODID = "burnjosspaper";
     // Directly reference a slf4j logger
     public static final Logger LOGGER = LogUtils.getLogger();
+
+    /** 打火石使用记录：位置 → 时间戳 */
+    private static final Map<BlockPos, Long> flintAndSteelFires = new HashMap<>();
+    /** 记录有效期（毫秒） */
+    private static final long FIRE_RECORD_TTL = 10_000L;
     public BurnJossPapaer(FMLJavaModLoadingContext context) {
         IEventBus modEventBus = context.getModEventBus();
 
@@ -40,6 +51,44 @@ public class BurnJossPapaer {
 
 
         context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+    }
+
+    // ──────────────────────────────────────────────
+    //  打火石追踪 — 记录玩家用打火石点火的位置
+    // ──────────────────────────────────────────────
+
+    @SubscribeEvent
+    public void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (event.getItemStack().getItem() == Items.FLINT_AND_STEEL) {
+            BlockPos pos = event.getPos();
+            flintAndSteelFires.put(pos, System.currentTimeMillis());
+            LOGGER.debug("Recorded flint-and-steel fire at {}", pos);
+        }
+    }
+
+    /**
+     * 检查物品烧毁位置是否在打火石点火的范围内（1格内且10秒内）
+     */
+    private boolean isFlintAndSteelFire(BlockPos itemPos) {
+        long now = System.currentTimeMillis();
+        // 清理过期记录并检查匹配
+        var it = flintAndSteelFires.entrySet().iterator();
+        while (it.hasNext()) {
+            var entry = it.next();
+            BlockPos firePos = entry.getKey();
+            long timestamp = entry.getValue();
+            if (now - timestamp > FIRE_RECORD_TTL) {
+                it.remove();
+                continue;
+            }
+            // 检查是否在1格范围内（打火石放置的火通常在点击位置或其上方/侧面）
+            if (Math.abs(itemPos.getX() - firePos.getX()) <= 1
+                    && Math.abs(itemPos.getY() - firePos.getY()) <= 1
+                    && Math.abs(itemPos.getZ() - firePos.getZ()) <= 1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ──────────────────────────────────────────────
@@ -56,8 +105,14 @@ public class BurnJossPapaer {
 
         LOGGER.info("remove reason"+ entity.isInLava()+" / " + entity.isOnFire());
 
-        // Check if the item was on fire or in lava when it died
-        if (!entity.isInLava() && !entity.isOnFire()) return;
+        // 只处理着火的物品（不处理岩浆中的）
+        if (!entity.isOnFire()) return;
+
+        // 检查是否在打火石点火的范围内（1格内且10秒内）
+        if (!isFlintAndSteelFire(entity.blockPosition())) {
+            LOGGER.info("Fire not from flint-and-steel, skipped");
+            return;
+        }
 
         ItemStack stack = itemEntity.getItem();
         if (stack.isEmpty()) return;
