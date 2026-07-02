@@ -18,10 +18,12 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.Command;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.registries.ForgeRegistries;
 
 // The value here should match an entry in the META-INF/neoforge.mods.toml file
 @Mod(BurnJossPapaer.MODID)
@@ -60,8 +62,15 @@ public class BurnJossPapaer {
         ItemStack stack = itemEntity.getItem();
         if (stack.isEmpty()) return;
 
+        // 黑名单检查
+        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
+        if (itemId != null && Config.blackListItem.contains(itemId.toString())) {
+            LOGGER.info("Blacklisted item {} burned, skipped", itemId);
+            return;
+        }
+
         LOGGER.info("try get wish data");
-        WishSavedData data = WishSavedData.get(event.getLevel());
+        WishSavedData data = WishSavedData.get();
         if (data == null) return;
 
         data.addItem(stack.copy());
@@ -87,13 +96,12 @@ public class BurnJossPapaer {
                                         return 0;
                                     }
 
-                                    WishSavedData data = WishSavedData.get(player.level());
+                                    WishSavedData data = WishSavedData.get();
                                     if (data == null) {
-                                        source.sendFailure(Component.literal("Failed to access wish inventory."));
+                                        source.sendFailure(Component.literal("Wish inventory not initialized."));
                                         return 0;
                                     }
 
-                                    // PaginationContainer handles page bounds internally
                                     player.openMenu(new SimpleMenuProvider(
                                             (id, inv, p) -> new PaginationContainer(id, inv, data, page),
                                             Component.literal("Wish Inventory")
@@ -112,9 +120,9 @@ public class BurnJossPapaer {
                                 return 0;
                             }
 
-                            WishSavedData data = WishSavedData.get(player.level());
+                            WishSavedData data = WishSavedData.get();
                             if (data == null) {
-                                source.sendFailure(Component.literal("Failed to access wish inventory."));
+                                source.sendFailure(Component.literal("Wish inventory not initialized."));
                                 return 0;
                             }
 
@@ -131,8 +139,8 @@ public class BurnJossPapaer {
     // You can use SubscribeEvent and let the Event Bus discover methods to call
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
-        // Pre-initialize WishSavedData with current containerSize config
-        WishSavedData.get(event.getServer().overworld());
+        // 每次服务器启动创建新的空容器
+        WishSavedData.create(Config.containerSize);
         LOGGER.info("Wish mod initialized — public container size: {}", Config.containerSize);
     }
 }
