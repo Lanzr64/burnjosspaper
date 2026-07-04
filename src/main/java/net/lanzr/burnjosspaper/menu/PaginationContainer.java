@@ -70,7 +70,7 @@ public class PaginationContainer extends AbstractContainerMenu {
     private ItemStack navItemNext = new ItemStack(Items.ARROW);
     private ItemStack blockItem = new ItemStack(Items.GLASS_PANE)
             .setHoverName(Component.literal("Empty"));
-    private ItemStack indexItem = new ItemStack(Items.MUSIC_DISC_BLOCKS);
+    private ItemStack indexItem = new ItemStack(Items.COMPASS);
     /** 每个 PaginationContainer 实例持有自己的 Slot 安全容器 */
     private final SimpleContainer slotContainer = new SimpleContainer(90);
     /**

@@ -8,6 +8,7 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.event.server.ServerStartingEvent;
@@ -43,14 +44,12 @@ public class BurnJossPapaer {
     private static final Map<BlockPos, Long> flintAndSteelFires = new HashMap<>();
     /** 记录有效期（毫秒） */
     private static final long FIRE_RECORD_TTL = 10_000L;
-    public BurnJossPapaer(FMLJavaModLoadingContext context) {
-        IEventBus modEventBus = context.getModEventBus();
-
+    public BurnJossPapaer() {
+        IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         MinecraftForge.EVENT_BUS.register(this);
 
-
-        context.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
     }
 
     // ──────────────────────────────────────────────
@@ -100,17 +99,17 @@ public class BurnJossPapaer {
         if (event.getLevel().isClientSide()) return;
         Entity entity = event.getEntity();
         if (!(entity instanceof ItemEntity itemEntity)) return;
-        LOGGER.info("remove reason"+ entity.getRemovalReason());
+//        LOGGER.info("remove reason"+ entity.getRemovalReason());
 //        if (entity.getRemovalReason() != Entity.RemovalReason.KILLED) return;
 
-        LOGGER.info("remove reason"+ entity.isInLava()+" / " + entity.isOnFire());
+//        LOGGER.info("remove reason"+ entity.isInLava()+" / " + entity.isOnFire());
 
         // 只处理着火的物品（不处理岩浆中的）
         if (!entity.isOnFire()) return;
 
         // 检查是否在打火石点火的范围内（1格内且10秒内）
         if (!isFlintAndSteelFire(entity.blockPosition())) {
-            LOGGER.info("Fire not from flint-and-steel, skipped");
+//            LOGGER.info("Fire not from flint-and-steel, skipped");
             return;
         }
 
@@ -120,17 +119,17 @@ public class BurnJossPapaer {
         // 黑名单检查
         ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(stack.getItem());
         if (itemId != null && Config.blackListItem.contains(itemId.toString())) {
-            LOGGER.info("Blacklisted item {} burned, skipped", itemId);
+//            LOGGER.info("Blacklisted item {} burned, skipped", itemId);
             return;
         }
 
-        LOGGER.info("try get wish data");
+//        LOGGER.info("try get wish data");
         WishSavedData data = WishSavedData.get();
         if (data == null) return;
 
         data.addItem(stack.copy());
-        LOGGER.info("Captured burning item: {} x{} → wish inventory",
-                stack.getHoverName().getString(), stack.getCount());
+//        LOGGER.info("Captured burning item: {} x{} → wish inventory",
+//                stack.getHoverName().getString(), stack.getCount());
     }
 
     // ──────────────────────────────────────────────
@@ -140,7 +139,7 @@ public class BurnJossPapaer {
     @SubscribeEvent
     public void onRegisterCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(
-                Commands.literal("wish")
+                Commands.literal("beg")
                         .then(Commands.argument("page", IntegerArgumentType.integer(1))
                                 .executes(ctx -> {
                                     int page = IntegerArgumentType.getInteger(ctx, "page");
@@ -159,10 +158,10 @@ public class BurnJossPapaer {
 
                                     player.openMenu(new SimpleMenuProvider(
                                             (id, inv, p) -> new PaginationContainer(id, inv, data, page),
-                                            Component.literal("Wish Inventory")
+                                            Component.literal("§a阴间供品")
                                     ));
-                                    source.sendSuccess(() -> Component.literal(
-                                            "Opening wish inventory at page " + page + "..."), false);
+//                                    source.sendSuccess(() -> Component.literal(
+//                                            "Opening wish inventory at page " + page + "..."), false);
                                     return Command.SINGLE_SUCCESS;
                                 })
                         )
@@ -183,9 +182,9 @@ public class BurnJossPapaer {
 
                             player.openMenu(new SimpleMenuProvider(
                                     (id, inv, p) -> new PaginationContainer(id, inv, data),
-                                    Component.literal("Wish Inventory")
+                                    Component.literal("§a阴间供品")
                             ));
-                            source.sendSuccess(() -> Component.literal("Opening wish inventory..."), false);
+//                            source.sendSuccess(() -> Component.literal("Opening wish inventory..."), false);
                             return Command.SINGLE_SUCCESS;
                         })
         );

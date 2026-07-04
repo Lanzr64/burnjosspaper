@@ -31,18 +31,18 @@ public class Config {
 
     private static boolean validateItemName(final Object obj)
     {
-//        return obj instanceof final String itemName && ForgeRegistries.ITEMS.containsKey(new ResourceLocation(itemName));
-        return obj instanceof final String itemName
-                && ForgeRegistries.ITEMS.containsKey(ResourceLocation.parse(itemName));
+        return obj instanceof final String itemName && ForgeRegistries.ITEMS.containsKey(new ResourceLocation(itemName));
+//        return obj instanceof final String itemName
+//                && ForgeRegistries.ITEMS.containsKey(ResourceLocation.parse(itemName));
     }
 
     private static void setup(ForgeConfigSpec.Builder builder) {
         CONTAINER_SIZE = builder
                 .comment("how many slots for public wish inventory")
-                .defineInRange(COMMON_TAB + ".scanInterval", 80, 1, Integer.MAX_VALUE);
+                .defineInRange(COMMON_TAB + ".scanInterval", 180, 1, Integer.MAX_VALUE);
         BLACK_LIST_ITEM = builder
                 .comment("black list for can burn, e.g. [\"minecraft:stone\", \"minecraft:stick\"]")
-                .defineListAllowEmpty(COMMON_TAB + ".extraEntityIds", List.of("minecraft:stone"),Config::validateItemName);
+                .defineListAllowEmpty(COMMON_TAB + ".extraEntityIds", List.of("minecraft:cobblestone"),Config::validateItemName);
     }
 
     @SubscribeEvent
