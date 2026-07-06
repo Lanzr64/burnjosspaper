@@ -157,7 +157,7 @@ public class BurnJossPapaer {
                                     }
 
                                     player.openMenu(new SimpleMenuProvider(
-                                            (id, inv, p) -> new PaginationContainer(id, inv, data, page),
+                                            (id, inv, p) -> new PaginationContainer(id, inv, data, page, true),
                                             Component.literal("§a阴间供品")
                                     ));
 //                                    source.sendSuccess(() -> Component.literal(
@@ -181,7 +181,7 @@ public class BurnJossPapaer {
                             }
 
                             player.openMenu(new SimpleMenuProvider(
-                                    (id, inv, p) -> new PaginationContainer(id, inv, data),
+                                    (id, inv, p) -> new PaginationContainer(id, inv, data, 1, true),
                                     Component.literal("§a阴间供品")
                             ));
 //                            source.sendSuccess(() -> Component.literal("Opening wish inventory..."), false);

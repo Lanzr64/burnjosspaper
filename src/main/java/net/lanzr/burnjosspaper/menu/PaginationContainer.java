@@ -62,6 +62,9 @@ public class PaginationContainer extends AbstractContainerMenu {
     private final int maxPages;
     private int currentPage = 1;
 
+    /** 只读模式：玩家只能取出物品，不能放入物品 */
+    private final boolean readOnly;
+
     private int quickcraftType = -1;
     private int quickcraftStatus;
     private final Set<Slot> quickcraftSlots = Sets.newHashSet();
@@ -74,23 +77,34 @@ public class PaginationContainer extends AbstractContainerMenu {
     /** 每个 PaginationContainer 实例持有自己的 Slot 安全容器 */
     private final SimpleContainer slotContainer = new SimpleContainer(90);
     /**
-     * 服务端构造（默认从第1页开始）
+     * 服务端构造（默认从第1页开始，可写模式）
      * @param container 任意容器实现（LargeInventory、玩家背包、箱子等）
      */
     public PaginationContainer(int id, Inventory playerInventory, Container container) {
-        this(id, playerInventory, container, 1);
+        this(id, playerInventory, container, 1, false);
     }
 
     /**
-     * 服务端构造（指定起始页码）
+     * 服务端构造（指定起始页码，可写模式）
      * @param container 任意容器实现
      * @param startPage 起始页码（1-indexed），超出范围自动截断
      */
     public PaginationContainer(int id, Inventory playerInventory, Container container, int startPage) {
+        this(id, playerInventory, container, startPage, false);
+    }
+
+    /**
+     * 服务端构造（指定起始页码和只读模式）
+     * @param container 任意容器实现
+     * @param startPage 起始页码（1-indexed），超出范围自动截断
+     * @param readOnly  为 true 时玩家只能取出物品，不能放入物品
+     */
+    public PaginationContainer(int id, Inventory playerInventory, Container container, int startPage, boolean readOnly) {
         super(MenuType.GENERIC_9x6, id);
         this.container = container;
         this.playerInventory = playerInventory;
         this.containerSize = container.getContainerSize();
+        this.readOnly = readOnly;
         // 根据容器大小计算总页数
         this.maxPages = Math.max(1, (this.containerSize + ITEM_SLOTS_PER_PAGE - 1) / ITEM_SLOTS_PER_PAGE);
         this.currentPage = Math.max(1, Math.min(startPage, maxPages));
@@ -195,8 +209,6 @@ public class PaginationContainer extends AbstractContainerMenu {
 
     @Override
     public void clicked(int slotId, int dragType, ClickType clickType, Player player) {
-        System.out.printf("Clicked(SlotId=%d, dragtype=%d, pClickType=%s, pPlayer=%s)\n",
-                slotId, dragType, clickType, player);
 //        在玩家物品槽位中
         if (slotId >= 0 && slotId < slots.size()) {
             Slot slot = slots.get(slotId);
@@ -301,16 +313,11 @@ public class PaginationContainer extends AbstractContainerMenu {
 
     //    注释，点击键，点击类型，点击玩家，动态槽
     private void doClick(int pSlotId, int pButton, ClickType pClickType, Player pPlayer) {
-//        System.out.println("doclick");
-//        System.out.printf("doClick(pSlotId=%d, pButton=%d, pClickType=%s, pPlayer=%s, dynSlot=%s)\n",
-//                pSlotId, pButton, pClickType, pPlayer, dynSlot);
         Inventory inventory = pPlayer.getInventory();
         if (pClickType == ClickType.QUICK_CRAFT) {
             int i = this.quickcraftStatus;
             this.quickcraftStatus = getQuickcraftHeader(pButton);
-            System.out.println("quick status " + this.quickcraftStatus + " i " + i);
             if ((i != 1 || this.quickcraftStatus != 2) && i != this.quickcraftStatus) {
-                System.out.println("reset ");
                 this.resetQuickCraft();
             } else if (this.getCarried().isEmpty()) {
                 this.resetQuickCraft();
@@ -330,7 +337,6 @@ public class PaginationContainer extends AbstractContainerMenu {
                         && dynSlot.mayPlace(itemstack)
                         && (this.quickcraftType == 2 || itemstack.getCount() > this.quickcraftSlots.size())
                         && this.canDragTo(dynSlot)) {
-                    System.out.println("can quick replace");
                     this.quickcraftSlots.add(dynSlot);
                 }
             } else if (this.quickcraftStatus == 2) {
@@ -339,13 +345,11 @@ public class PaginationContainer extends AbstractContainerMenu {
                         int i1 = (this.quickcraftSlots.iterator().next()).index;
                         this.resetQuickCraft();
                         this.doClick(i1, this.quickcraftType, ClickType.PICKUP, pPlayer);
-                        System.out.println("status 1");
                         return;
                     }
 
                     ItemStack itemstack2 = this.getCarried().copy();
                     if (itemstack2.isEmpty()) {
-                        System.out.println("status 2");
                         this.resetQuickCraft();
                         return;
                     }
@@ -367,23 +371,16 @@ public class PaginationContainer extends AbstractContainerMenu {
                     this.setCarried(itemstack2);
                 }
 
-                System.out.println("status 3");
                 this.resetQuickCraft();
             } else {
-                System.out.println("so is else");
 
                 this.resetQuickCraft();
             }
         } else if (this.quickcraftStatus != 0) {
             this.resetQuickCraft();
         } else if ((pClickType == ClickType.PICKUP || pClickType == ClickType.QUICK_MOVE) && (pButton == 0 || pButton == 1)) {
-            System.out.println("IN HERE");
             Slot dynSlot = slots.get(pSlotId);
             ClickAction clickaction = pButton == 0 ? ClickAction.PRIMARY : ClickAction.SECONDARY;
-            System.out.printf("carryStack=%s, dynStack=%s\n",
-                    this.getCarried().isEmpty() ? "empty" : this.getCarried().toString(),
-                    dynSlot.getItem().isEmpty() ? "empty" : dynSlot.getItem().toString());
-            System.out.printf("maypickup:" + dynSlot.mayPickup(pPlayer) + " mayplace:" + dynSlot.mayPlace(this.getCarried()));
             if (pSlotId == -999) {
                 if (!this.getCarried().isEmpty()) {
                     if (clickaction == ClickAction.PRIMARY) {
@@ -409,17 +406,16 @@ public class PaginationContainer extends AbstractContainerMenu {
                     return;
                 }
 
+                // 只读模式：禁止将物品放入展示区（slotId >= 0 排除点击窗口外）
+                if (readOnly && pSlotId >= 0 && pSlotId < PLAYER_INV_START && !this.getCarried().isEmpty()) {
+                    return;
+                }
+
                 ItemStack dynstack = dynSlot.getItem();
                 ItemStack carrystack = this.getCarried();
                 pPlayer.updateTutorialInventoryAction(carrystack, dynSlot.getItem(), clickaction);
                 if (true) {
-//                    System.out.println("key change");
                     if (!net.minecraftforge.common.ForgeHooks.onItemStackedOn(dynstack, carrystack, dynSlot, clickaction, pPlayer, createCarriedSlotAccess()))
-//                        System.out.println("in key logic");
-//                System.out.printf("carryStack=%s, dynStack=%s\n",
-//                        carrystack.isEmpty() ? "empty" : carrystack.toString(),
-//                        dynSlot.getItem().isEmpty() ? "empty" : dynSlot.getItem().toString());
-//                System.out.printf("maypickup:" + dynSlot.mayPickup(pPlayer) + " mayplace:" + dynSlot.mayPlace(carrystack));
                         if (dynstack.isEmpty()) {
                             if (!carrystack.isEmpty()) {
                                 int i3 = clickaction == ClickAction.PRIMARY ? carrystack.getCount() : 1;
@@ -427,13 +423,10 @@ public class PaginationContainer extends AbstractContainerMenu {
                             }
                         } else if (dynSlot.mayPickup(pPlayer)) {
 
-//                            System.out.println("carryStack empty:" + carrystack.isEmpty());
                             if (carrystack.isEmpty()) {
-//                                System.out.println("try pickup");
                                 int j3 = clickaction == ClickAction.PRIMARY ? dynstack.getCount() : (dynstack.getCount() + 1) / 2;
                                 Optional<ItemStack> optional1 = dynSlot.tryRemove(j3, Integer.MAX_VALUE, pPlayer);
                                 optional1.ifPresent((p_150421_) -> {
-//                                    System.out.println("pick success");
                                     this.setCarried(p_150421_);
                                     dynSlot.onTake(pPlayer, p_150421_);
                                 });
@@ -573,6 +566,9 @@ public class PaginationContainer extends AbstractContainerMenu {
                 if (!this.moveItemStackTo(itemstack1, PLAYER_INV_START, TOTAL_SLOTS, true)) {
                     return ItemStack.EMPTY;
                 }
+            } else if (readOnly) {
+                // 玩家背包 → 展示区（只读模式下禁止）
+                return ItemStack.EMPTY;
             } else if (!this.moveItemStackTo(itemstack1, 0, NAV_NEXT_CONTAINER_SLOT, false)) {
                 // 玩家背包 → 展示区
                 return ItemStack.EMPTY;
@@ -628,7 +624,7 @@ public class PaginationContainer extends AbstractContainerMenu {
 
         @Override
         public void set(ItemStack stack) {
-            if (isInPageRange()) {
+            if (isInPageRange() && (!readOnly || stack.isEmpty())) {
                 PaginationContainer.this.container.setItem(getActualIndex(), stack);
             }
             super.set(stack);
@@ -654,7 +650,7 @@ public class PaginationContainer extends AbstractContainerMenu {
 
         @Override
         public boolean mayPlace(ItemStack stack) {
-            return isInPageRange();
+            return !readOnly && isInPageRange();
         }
 
         @Override
