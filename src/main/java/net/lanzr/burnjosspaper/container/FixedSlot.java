@@ -7,6 +7,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.NotNull;
 
+// 固定槽位
 public class FixedSlot extends Slot {
     public FixedSlot(int x, int y) {
         super(new SimpleContainer(1), 0, x, y);
