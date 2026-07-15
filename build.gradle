@@ -181,7 +181,7 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
-}
+}WWW
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.
 idea {
@@ -189,4 +189,14 @@ idea {
         downloadSources = true
         downloadJavadoc = true
     }
+}
+// 构建完成后导出 JAR 到指定路径
+tasks.register('exportJar', Copy) {
+    dependsOn 'jar'
+    from jar.archiveFile
+    into 'D:/lz_workplace/java/lzProject/output'
+}
+
+tasks.named('build').configure {
+    dependsOn 'exportJar'
 }
